@@ -1,57 +1,57 @@
 # 1. The log that only recorded successes
 
-**Symptom.** The wake phrase was unreliable. I'd say "Hey Phone" three or four
-times before it answered, sometimes shouting.
+**In one line:** the phone's wake phrase kept failing, and the log said it was fine, because the log could only record successes.
 
-**What I assumed.** The detection threshold was too high. Obvious fix: lower it.
+| | |
+|---|---|
+| **Where** | Phone app, voice wake-up |
+| **Result** | 25 missed wake phrases found, 0 heard; fixed by changing how the phone listens on a headset |
+| **Topic** | Debugging, Measurement |
 
-**Why that was wrong.** I checked the log first and found two clean detections
-in the window I'd tested. That looked like the wake word working fine — so I
-concluded the problem was elsewhere.
+## The problem
 
-It wasn't. A failed detection writes *nothing*. The keyword spotter reports a
-match or stays silent; there's no confidence score in its result type. So five
-failures followed by one success and a single success on the first try produce
-byte-identical logs. I'd read a log that was structurally incapable of showing
-me the thing I was investigating, and drawn a confident conclusion from it.
+I had to say "Hey Phone" 3 or 4 times before it answered, sometimes shouting.
 
-**What I built.** Since the model wouldn't tell me about near-misses, I measured
-the audio myself. The capture loop now tracks a running noise floor and logs
-every burst of speech that ended without a match:
+## What I assumed
+
+The detection threshold was too high, so the fix was to lower it.
+
+## What the evidence said
+
+- The log showed 2 clean detections in the time I tested. That looked like it was working.
+- A failed detection writes nothing. The wake-word model either reports a match or says nothing. It gives no score.
+- So 5 failures then 1 success leaves exactly the same log as 1 success on the first try. The log could not show the problem I was looking for.
+
+## How I measured it
+
+The model would not report near-misses, so I measured the sound myself. The phone now logs every burst of speech that ends without a match:
 
 ```
 Speech heard but nothing matched: peak=0.1282 floor=0.0002 length=500ms
 Speech heard but nothing matched: peak=0.1338 floor=0.0011 length=500ms
 ```
 
-**What it showed.** Twenty-five bursts. Peaks of 0.08–0.17 against a floor
-around 0.001 — a signal a hundred times above the noise, in a quiet room, for
-half a second each. Zero detections.
+| Measurement | Value |
+|---|---|
+| Bursts of speech heard | 25 |
+| My voice compared with background noise | about 100 times louder (peaks 0.08 to 0.17, background about 0.001) |
+| Detections | 0 |
+| Same phrase heard correctly by the desktop, on its own mic, same room | 7 times |
 
-That killed the threshold theory outright. My voice was arriving in excellent
-condition and the model was matching nothing.
+My voice was arriving loud and clear. The threshold was not the problem.
 
-**The corroboration.** In the same period the desktop, listening on its own
-microphone, transcribed the same speech correctly seven times:
+## The cause
 
-```
-wake-check heard: 'hey phone.'  -> Wake phrase for the phone -- staying quiet
-```
+The microphone. It was a Bluetooth headset, and its mic sends only the lower half of the sound frequencies. The wake-word model was trained on full-range speech (16 kHz recordings), so it could not use that input.
 
-Two independent systems, same room, same voice. One understood it every time;
-the other never did. The difference was the microphone — a Bluetooth headset
-whose narrowband capture leaves the upper half of every audio frame empty, which
-is exactly the input a model trained on 16kHz speech cannot use.
+## The fix
 
-**What I changed.** On a headset, idle listening now goes through full speech
-recognition instead of the keyword model — which handles that microphone
-without difficulty. The keyword model stays for the phone's own mic, where it's
-cheap enough to run all day.
+On a headset, the phone now uses full speech recognition to listen for the wake phrase, which handles that mic fine. The phone's own mic keeps the wake-word model, because it is cheap enough to run all day.
 
-**The lesson.** Absence of evidence in a log is not evidence of absence. Before
-trusting a log to answer a question, check that it's capable of recording the
-answer.
+## What I took from it
+
+Before trusting a log to answer a question, check that it can record the answer.
 
 ---
 
-*Project: Umbra. Copied 19 Nov 2026 from [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#1-the-log-that-only-recorded-successes) at commit 5940844. The showcase copy is kept as well; if they differ, the showcase is newer.*
+*Project: Umbra. Rewritten for easier reading from the original in [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#1-the-log-that-only-recorded-successes) (commit 5940844). Same facts and numbers.*
