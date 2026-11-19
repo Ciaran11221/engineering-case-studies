@@ -1,36 +1,37 @@
 # 2. Three speculative fixes that each broke working code
 
-Over a few sessions I made three changes on plausible reasoning, without
-evidence. All three broke functionality that had been working.
+**In one line:** I made 3 changes to the phone's voice code based on reasoning with no evidence, and all 3 broke things that had been working.
 
-**`recognizer.cancel()` to free the microphone.** The theory: the speech
-recogniser was holding the mic and blocking wake detection during playback.
-Reasonable. The log later disproved it — the detector restarts happily
-mid-reply. Meanwhile cancelling left the recogniser unable to hear anything
-afterwards: every wake produced "Yes?" and then silence.
+| | |
+|---|---|
+| **Where** | Phone app, voice listening |
+| **Result** | 3 changes reverted; each is now a warning comment in the code where someone would try it again |
+| **Topic** | Debugging, Design decision |
 
-**Shortening the endpointing timeouts.** The theory: ending the turn faster
-would make it feel snappier. What actually happens is there's a natural pause
-between the acknowledgement finishing and you starting to speak, and the
-recogniser counted that as the end of the turn. Every command came back empty.
+## The problem
 
-**Switching the audio source to `VOICE_COMMUNICATION`.** The theory: its echo
-cancellation would help detect "stop" over the speaker. That processing is
-built for phone calls — heavy suppression and gain control — and it degrades
-exactly the signal a keyword model needs. Stop detection got worse, never
-better.
+Over a few sessions I made 3 changes on plausible reasoning, without checking any evidence first. Each one broke something that had worked.
 
-**What I changed.** All three reverted. More usefully, each one is now a
-comment in the source at the exact place someone would try it again:
+## The three changes
 
-> **NOTE: do not set the silence-length extras here.** Shortening them to end
-> the turn faster looked reasonable and broke recognition outright... The
-> platform defaults account for that gap; leave them alone.
+| Change | What I assumed | What happened |
+|---|---|---|
+| Call `recognizer.cancel()` to free the microphone | The speech recogniser (the part that turns speech into text) was holding the mic and blocking wake-phrase detection during playback | The log later showed the detector restarts fine in the middle of a reply. Cancelling left the recogniser unable to hear anything afterwards: every wake phrase got a "Yes?" and then silence |
+| Shorten the endpointing timeouts (the silence lengths that decide when I have finished speaking) | Ending the turn sooner would feel snappier | There is a natural pause between the assistant finishing its acknowledgement and me starting to speak. The recogniser counted that pause as the end of my turn, so every command came back empty |
+| Switch the audio source to `VOICE_COMMUNICATION` (an Android mode meant for phone calls) | Its echo cancellation would help detect "stop" over the speaker | That mode applies heavy noise suppression and automatic volume control, which degrades the signal a keyword-spotting model needs. Stop detection got worse, never better |
 
-**The lesson.** A negative result is worth as much as a positive one and is
-forgotten twice as fast. Codify it where the next person — usually me — will
-trip over it.
+## The fix
+
+I reverted all 3. Each one is now a comment in the source, at the place where someone would try it again:
+
+    NOTE: do not set the silence-length extras here. Shortening them to end
+    the turn faster looked reasonable and broke recognition outright... The
+    platform defaults account for that gap; leave them alone.
+
+## What I took from it
+
+A negative result is worth as much as a positive one, and it gets forgotten twice as fast, so write it down where the next person (usually me) will trip over it.
 
 ---
 
-*Project: Umbra. Copied 19 Nov 2026 from [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#2-three-speculative-fixes-that-each-broke-working-code) at commit 5940844. The showcase copy is kept as well; if they differ, the showcase is newer.*
+*Project: Umbra. Rewritten for easier reading from the original in [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#2-three-speculative-fixes-that-each-broke-working-code) (commit 5940844). Same facts and numbers.*

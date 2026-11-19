@@ -1,74 +1,45 @@
 # 20. The consistency feature that would have introduced an inconsistency
 
-**Symptom.** Umbra says a handful of fixed lines constantly — "Noted.",
-"Still with you.", "Conversation mode on." In one three-and-a-half hour
-window, twelve of twenty-six spoken replies were repeats of five lines. Every
-one of them was a fresh synthesis, and this synthesiser is nondeterministic,
-so each was a fresh roll of the dice. A bad roll is the likeliest explanation
-for a warped reply I'd heard that morning.
+**In one line:** I added pre-recorded clips so fixed phrases would always sound the same, and the code review found the feature could make a single reply speak in two different voices.
 
-**What I planned.** The phone already solved this: it plays a known-good
-pre-rendered take for its fixed lines. The desktop didn't. So — render the
-same clips for the desktop, and have the speech function check for a match
-before it touches the synthesiser. I wrote the constraints out, and what came
-back was a clean implementation, a new test file, and a passing suite.
+| | |
+|---|---|
+| **Where** | Desktop voice output |
+| **Result** | 4 defects found in review: 2 real bugs, 1 real but low odds, 1 not reachable today |
+| **Topic** | Code review, Design decision |
 
-**What the review found.** I review the diff, not the summary — a summary is
-written by whatever did the work, so it cannot check itself. Four defects, and
-the first one is the reason the rule exists.
+## The problem
 
-The voice system has a cloned-voice engine that runs on a local server. When
-that server is unhealthy, the speech function already handles it: it
-substitutes a plain fallback voice, sentence by sentence, so a dead server
-means a slightly different voice rather than silence.
+Umbra says a handful of fixed lines all the time, such as "Noted.", "Still with you." and "Conversation mode on." In one 3.5 hour window, 12 of 26 spoken replies were repeats of 5 lines. Each one was generated fresh by the speech engine, and that engine gives a slightly different result every time. A bad result was the likeliest explanation for a warped reply I had heard that morning.
 
-The new clip lookup didn't know about any of that. It keyed off the voice's
-*name*, which doesn't change when the fallback kicks in. So with the server
-down, "Noted." would play from the genuinely cloned pre-rendered take, and the
-very next sentence would come out in the generic fallback voice.
+## What I assumed
 
-Two different voices, in one reply. The feature existed to remove exactly that
-inconsistency. And the server being unhealthy isn't a rare edge case — I'm in
-the middle of removing that engine entirely, so unhealthy is about to be its
-permanent state.
+The phone app already solved this. It plays a known-good pre-recorded take for its fixed lines, and the desktop did not. So the plan was to record the same clips for the desktop and have the speech function look for a match before it uses the speech engine. I wrote out the constraints. What came back was a clean implementation, a new test file and a passing test suite.
 
-**The second one was quieter and I nearly missed it.** If a clip file was
-listed in the manifest but couldn't be decoded — a truncated file from a
-render that got killed partway, which is a live risk because I run renders at
-below-normal priority so they don't disturb anything — the code logged the
-error and returned. Nothing was spoken at all, with a working synthesiser
-sitting right there.
+## What the review found
 
-Every other failure mode in the feature fell through to synthesis: no clip
-set, an unreadable manifest, a line with no match. The pull request body even
-said unreadable clip sets fall through. This one didn't, and the test file
-covered a missing *manifest* rather than a bad *clip*, so nothing caught it.
+I review the code change itself, not the summary of it. A summary is written by whatever did the work, so it cannot check itself. The review found 4 defects.
 
-The fix was structural rather than a patch: separate reading the file from
-playing it. A read failure is recoverable — synthesise instead. A failure
-*during* playback deliberately stays fatal, because audio has already started
-and re-speaking the line would repeat half of it.
+**1. Two voices in one reply.** The voice system has a cloned-voice engine that runs on a local server. When that server is unhealthy, the speech function already switches to a plain fallback voice, sentence by sentence. A dead server then means a slightly different voice, not silence.
 
-**What I'd claim less of.** A third finding was a type check — the manifest
-loader promised in its own docstring never to raise, and a corrupted file that
-still parsed as valid JSON would have raised straight out of the speech
-function. Real, cheap to fix, low odds.
+The new clip lookup did not know about this. It looked clips up by the voice's name, and the name does not change when the fallback starts. With the server down, "Noted." would play from the cloned-voice recording, and the next sentence would come out in the fallback voice. That is the exact inconsistency the feature was meant to remove. The unhealthy state is also not rare, because I am in the middle of removing that engine, so unhealthy is about to be permanent.
 
-The fourth I reported as not currently reachable, and said so in the commit.
-A stereo clip would have played at half speed, because the clip path skipped a
-reshape the synthesis path does two hundred lines above it. I checked every
-clip on disk — all 487 are mono, and both renderers only emit mono. It's a
-guard against a future regression, not a bug anyone would hit today. Writing
-it up as a live defect would have been the easier and less useful thing to do.
+**2. Silence instead of speech.** If a clip was listed in the manifest (the list of available clips) but could not be decoded, the code logged the error and returned, so nothing was spoken at all, even with a working speech engine available. A truncated file from a render that got stopped part way is a live risk, because I run renders at below-normal priority so they do not disturb other work.
 
-**The thread.** The agent's summary was accurate about what it built. It was
-accurate about what it tested. It was confidently wrong about one behaviour it
-claimed — the fall-through — and completely silent about the voice-mixing
-case, because nothing in its own change looked wrong in isolation. The defect
-lived in the interaction between new code and a fallback path two hundred
-lines away. No summary written by the author can surface that, however honest
-the author is.
+Every other failure in the feature fell back to the speech engine: no clip set, an unreadable manifest, a line with no match. The pull request description even said unreadable clip sets fall back. This case did not, and the tests covered a missing manifest, not a bad clip.
+
+**3. A type check.** The manifest loader promised in its own description never to raise an error. A corrupted file that still parsed as valid JSON would have raised one straight out of the speech function. It is real and cheap to fix, with low odds.
+
+**4. Not currently reachable.** A stereo clip would have played at half speed, because the clip path skipped a reshape step that the synthesis path does 200 lines above it. I checked every clip on disk. All 487 are mono, and both renderers only produce mono. It is a guard against a future regression, not a bug anyone would hit today. I said so in the commit and did not write it up as a live defect.
+
+## The fix
+
+For defect 2 I separated reading the file from playing it. A read failure can be recovered from, so the speech engine speaks the line instead. A failure during playback stays fatal on purpose, because audio has already started and speaking the line again would repeat half of it.
+
+## What I took from it
+
+The agent's summary was accurate about what it built and tested, but wrong about one behaviour (the fall-back) and silent about the voice mixing, because the defect sat in how new code interacted with a fallback path 200 lines away, and no summary written by the author can show that.
 
 ---
 
-*Project: Umbra. Copied 19 Nov 2026 from [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#20-the-consistency-feature-that-would-have-introduced-an-inconsistency) at commit 5940844. The showcase copy is kept as well; if they differ, the showcase is newer.*
+*Project: Umbra. Rewritten for easier reading from the original in [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#20-the-consistency-feature-that-would-have-introduced-an-inconsistency) (commit 5940844). Same facts and numbers.*

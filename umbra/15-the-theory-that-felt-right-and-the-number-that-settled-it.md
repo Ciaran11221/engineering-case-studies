@@ -1,57 +1,52 @@
 # 15. The theory that felt right and the number that settled it
 
-**Symptom.** A multi-turn voice exchange — the assistant reads out a short
-list, asks which one I meant, I name one — lost all memory of the list
-between the question and my answer. It replied as if I'd said the name out
-of nowhere, with nothing to attach it to.
+**In one line:** the assistant forgot the list it had just read out, and a number already in the settings showed the confident explanation was wrong.
 
-**The first explanation, and why I didn't accept it.** The claim handed to
-me was that I'd paused about fourteen seconds before answering, and that
-the assistant's wake claim had quietly expired somewhere in that gap. It's
-a plausible story — voice systems do lose the floor to silence — and it
-was stated with real confidence. I hadn't paused. I answered right after
-the assistant finished talking, and I said so.
+| | |
+|---|---|
+| **Where** | Voice assistant, multi-turn conversation |
+| **Result** | 6 seconds of the gap were the assistant still talking, not me pausing; the fix renews the hold when listening starts |
+| **Topic** | Debugging, Measurement |
 
-**What checking it actually looked like.** Rather than argue from memory
-against memory, the fix was to find a number in the system that didn't
-depend on either of us being right. The component doing the listening has
-a hard configured cap on how long it will wait for speech to start — eight
-seconds. The gap in the log was closer to fourteen. Eight from fourteen
-leaves six seconds that could not have been spent listening for me at all,
-which meant they were spent somewhere else: the assistant was still
-synthesizing and speaking a four-sentence reply before it ever started
-listening.
+## The problem
 
-**What that reframed.** The bug wasn't "the user paused too long." It was
-that a long spoken reply eats into the same fifteen-second window the
-system uses to hold the floor for an answer, and the code only renewed
-that hold *after* getting a reply back — never while it was still talking,
-never while it was still listening. A short answer never showed the
-problem. A four-item list read out loud, every time, did.
+In a voice exchange, the assistant reads out a short list and asks which one I meant, and I name one. It lost all memory of the list between the question and my answer. It replied as if I had said the name out of nowhere, with nothing to attach it to.
 
-**The part worth naming.** This exact class of bug had already been found
-and fixed once before, three weeks earlier — and the comment describing
-that fix was still sitting in the file, describing almost the same
-symptom. The first fix renewed the hold after a successful answer came
-back, which covers a *fast* back-and-forth. It never covered a *single*
-reply that was slow to say out loud. Not a new bug. The same bug,
-incompletely closed the first time, waiting for a case that happened to
-exercise the part that wasn't covered.
+## What I assumed
 
-**What changed as a result.** The hold now gets renewed the moment
-listening starts, not only after it returns — covering a slow reply's own
-talking time the same way the first fix covered slow turnarounds between
-turns. And every reply now logs how long it took to say, specifically so
-the next time something looks like a fourteen-second silence, the log can
-answer whether it actually was one instead of two people trading guesses
-about it.
+I did not assume anything myself. The explanation I was handed, with real confidence, was that I had paused about 14 seconds before answering, and that the assistant's hold on the conversation (its "wake claim") had expired in that gap. It is a plausible story, since voice systems do lose the floor to silence. But I had not paused. I answered right after the assistant finished talking, and I said so.
 
-**The lesson.** The theory that gets offered with confidence is not
-automatically the theory that's correct, including from a tool that just
-watched the whole exchange happen. The fix here wasn't "trust the second
-guess more" — it was finding the one number already sitting in the
-configuration that neither guess needed to win the argument to settle.
+## What the evidence said
+
+- The component that listens has a hard configured limit on how long it waits for speech to start: 8 seconds.
+- The gap in the log was close to 14 seconds.
+- 14 minus 8 leaves 6 seconds that could not have been spent listening for me. They were spent elsewhere: the assistant was still synthesizing and speaking a 4-sentence reply before it started listening.
+
+## How I measured it
+
+I arbitrated with a number that did not depend on either of us being right, and not by arguing from memory against memory.
+
+| Measurement | Value |
+|---|---|
+| Gap in the log | about 14 seconds |
+| Configured wait for speech to start | 8 seconds |
+| Time not spent listening for me | 6 seconds |
+| Length of the reply being spoken in that time | 4 sentences |
+
+## The cause
+
+A long spoken reply eats into the same 15-second window the system uses to hold the floor for an answer. The code only renewed that hold after getting a reply back, never while it was still talking and never while it was listening. A short answer never showed the problem. A 4-item list read out loud showed it every time.
+
+This class of bug had been found and fixed once before, 3 weeks earlier. The comment describing that fix was still in the file, describing almost the same symptom. The first fix renewed the hold after a successful answer came back, which covers a fast back-and-forth. It never covered a single reply that is slow to say out loud. It was the same bug, closed incompletely the first time.
+
+## The fix
+
+The hold is now renewed the moment listening starts, not only after it returns. That covers a slow reply's own talking time the same way the first fix covered slow turnarounds between turns. Every reply also logs how long it took to say, so the next time something looks like a 14-second silence, the log can show whether it was one, instead of 2 people trading guesses about it.
+
+## What I took from it
+
+The theory offered with confidence is not automatically the correct one, even from a tool that watched the whole exchange. What worked was to find the one number already in the configuration that settled it without either guess having to win.
 
 ---
 
-*Project: Umbra. Copied 19 Nov 2026 from [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#15-the-theory-that-felt-right-and-the-number-that-settled-it) at commit 5940844. The showcase copy is kept as well; if they differ, the showcase is newer.*
+*Project: Umbra. Rewritten for easier reading from the original in [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#15-the-theory-that-felt-right-and-the-number-that-settled-it) (commit 5940844). Same facts and numbers.*

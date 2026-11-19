@@ -1,55 +1,47 @@
 # 6. The magic packet that couldn't leave the house
 
-**Symptom.** Remote wake worked perfectly at home and failed silently the one
-time it actually mattered — testing it from mobile data, away from the house,
-produced nothing. No error, no packet, no wake.
+**In one line:** remote wake of my desktop worked at home and failed silently away from home, because the wake signal cannot travel past the home network, so no setting could fix it.
 
-**What I assumed.** A configuration problem. Wrong MAC address, adapter not
-armed for wake, BIOS setting reverted — something checkable, something with a
-setting to fix.
+| | |
+|---|---|
+| **Where** | Waking the desktop from the phone |
+| **Result** | Tested from mobile data with the desktop asleep: the direct packet failed as predicted, the relay woke the desktop |
+| **Topic** | Debugging, Design decision |
 
-**Why that was wrong.** Every setting checked out. The adapter was armed. The
-BIOS was correct. The packet was being sent, correctly formed, to the right
-address. None of that mattered, because the premise was wrong: this was never
-a configuration problem to begin with.
+## The problem
 
-A Wake-on-LAN packet is a link-layer broadcast. It doesn't have a route past
-the local network — there's no IP path for it to take, the way there is for a
-normal packet, because it isn't addressed to anyone; it's shouted at everyone
-on the wire. It can't cross the internet for the same reason a shout in one
-room can't be heard in another building. And it can't ride the VPN mesh
-either, for a subtler reason: the sleeping machine's own VPN client is asleep
-too, so even if the packet somehow arrived at the tunnel, there'd be nothing
-listening on the other end to forward it onto the physical network.
+Remote wake worked at home. The 1 time it mattered, testing from mobile data away from the house, nothing happened. There was no error, no packet and no wake.
 
-No amount of correct configuration fixes a packet that has nowhere to go.
+## What I assumed
 
-**What I built.** Not a workaround on the same machine — a second, independent
-one. An old phone, left permanently on the home network with its screen off,
-running a script with exactly one job: accept an authenticated request over
-the VPN mesh, and put a magic packet on the *local* wire it's actually sitting
-on. It doesn't talk to Core, doesn't import anything from the rest of the
-system, and doesn't need Umbra to be working — which is the one property
-that actually matters, since it exists specifically for the moment Umbra
-isn't.
+A configuration problem: wrong MAC address (the network card's hardware address), the network adapter not set to wake the machine, or a BIOS setting (the computer's start-up settings) that had reverted. These are all things I could check and fix.
 
-The main phone now tries both routes on every wake attempt: the direct packet,
-which is instant when you're home, and the relay, reached over the VPN, which
-is the only one that can possibly succeed from anywhere else.
+## What the evidence said
 
-**What it showed.** Testing end to end — phone on mobile data, Wi-Fi off,
-desktop actually asleep — the direct packet failed exactly as predicted, and
-the relay carried the request the rest of the way. The desktop woke. A queued
-command that had been sitting on the phone ran itself the moment the machine
-came back.
+- Every setting checked out.
+- The adapter was armed, the BIOS was correct, and the packet was sent, correctly formed, to the right address.
+- None of that mattered, because this was never a configuration problem.
 
-**The lesson.** Not every failure is a setting away from working. Some
-failures are structural — the thing you're asking for literally cannot happen
-along the path you're asking it to travel, no matter how correctly everything
-along that path is configured. The fix isn't to configure harder; it's to
-notice the path doesn't reach, and add something that stands where it needs
-to end.
+## The cause
+
+A Wake-on-LAN packet (the "magic packet" that wakes a sleeping computer) is a link-layer broadcast. It is not addressed to anyone. It is shouted at everyone on the local wire, so it has no route past the local network. It cannot cross the internet, for the same reason a shout in one room cannot be heard in another building.
+
+It also cannot travel over the VPN mesh (the private network linking my devices). The sleeping machine's own VPN client is asleep too. Even if the packet reached the tunnel, nothing would be listening on the other end to forward it onto the physical network.
+
+## The fix
+
+I built a second, independent route. An old phone is left permanently on the home network with its screen off, running a script with 1 job: accept an authenticated request over the VPN mesh and put a magic packet on the local wire it is sitting on. It does not talk to Core (the main server of the assistant). It does not import anything from the rest of the system and does not need Umbra to be working. That matters because it exists for the moment Umbra is not running.
+
+The main phone now tries both routes on every wake attempt: the direct packet, which is instant at home, and the relay over the VPN, which is the only route that can work from anywhere else.
+
+## How I measured it
+
+I tested end to end: phone on mobile data, Wi-Fi off, desktop asleep. The direct packet failed exactly as predicted. The relay carried the request the rest of the way and the desktop woke. A queued command that had been waiting on the phone ran itself as soon as the machine came back.
+
+## What I took from it
+
+Some failures are structural. The request cannot happen along the path it is travelling, however well that path is configured. The fix is to notice the path does not reach, and add something that stands where it needs to end.
 
 ---
 
-*Project: Umbra. Copied 19 Nov 2026 from [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#6-the-magic-packet-that-couldnt-leave-the-house) at commit 5940844. The showcase copy is kept as well; if they differ, the showcase is newer.*
+*Project: Umbra. Rewritten for easier reading from the original in [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#6-the-magic-packet-that-couldnt-leave-the-house) (commit 5940844). Same facts and numbers.*

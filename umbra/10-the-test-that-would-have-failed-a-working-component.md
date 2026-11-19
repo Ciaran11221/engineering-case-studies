@@ -1,42 +1,35 @@
 # 10. The test that would have failed a working component
 
-**Symptom.** None yet — that's the point. I was designing a planning tool whose
-core component is a small local model that judges whether a given question is
-worth asking about a problem. Nothing was built. Following my own rule for this
-project, I wrote the acceptance test for that component before writing the
-component: state in advance what result would prove it isn't good enough.
+**In one line:** before building a planning tool, I wrote the test that would prove its small local model was not good enough, and the test itself turned out to be wrong.
 
-**What I assumed.** I wrote it down like this: *if the judge marks more
-questions irrelevant than relevant on a hand-labelled set, the model is too
-weak.* The reasoning felt solid. A model that can't see why a question matters
-will reject it, the pool of questions shrinks, and the coverage figure I planned
-to show myself goes up. It fails in the flattering direction, and it fails
-silently — exactly the thing worth writing a test for.
+| | |
+|---|---|
+| **Where** | Design of a planning tool, whose core component is a small local model that judges whether a question is worth asking |
+| **Result** | My acceptance rule would have rejected a judge that scored 14 of 14; the replacement test caught 1 real failure on the first run |
+| **Topic** | Testing, Measurement, Design decision |
 
-**Why that was wrong.** The model runs locally and costs nothing per call, so
-before building anything I built a set of fourteen questions instead — six that
-genuinely mattered for a worked example, eight that didn't — and put them past
-it one at a time.
+## The problem
 
-It agreed with me on all fourteen.
+Nothing was built yet. I was designing a planning tool whose core component is a small local model that judges whether a given question is worth asking about a problem. Following my own rule for this project, I wrote the acceptance test before the component. The test states in advance what result would prove the model is not good enough.
 
-It also returned eight "not relevant" against six "relevant", which trips my
-test. My own acceptance criterion would have condemned a component that had
-just scored a hundred percent.
+## What I assumed
 
-The ratio isn't a property of the model. It's a property of the set I handed it,
-and I chose to make most of those questions irrelevant. Worse, the design
-deliberately generates far more candidate questions than it needs so that most
-get filtered away — which means a *correct* judge will normally return more
-rejections than keeps. The test fires hardest exactly when the thing works.
+I wrote it down like this: if the judge marks more questions irrelevant than relevant on a hand-labelled set, the model is too weak. My reasoning was that a model that cannot see why a question matters will reject it, the pool of questions shrinks, and the coverage figure I planned to show myself goes up. That fails in the flattering direction and fails silently, which is the kind of failure worth writing a test for.
 
-**What the corrected test caught.** I replaced the ratio with the number that
-actually matters: how many genuinely relevant questions get wrongly thrown away.
-That's the only error I can't see, because a discarded question never appears on
-screen at all.
+## What the evidence said
 
-Then I made the set harder — adding questions *adjacent* to a relevant one but
-asking something subtly different — and ran it three times:
+The model runs locally and costs nothing per call, so before building anything I made a set of 14 questions for a worked example: 6 that genuinely mattered and 8 that did not. I put them past the model one at a time.
+
+- It agreed with my labels on all 14.
+- It returned 8 "not relevant" against 6 "relevant", which trips my test. My acceptance rule would have condemned a component that had just scored 100 percent.
+- The ratio is a property of the set I handed it, and I chose to make most of those questions irrelevant.
+- The design also generates far more candidate questions than it needs, so that most get filtered away. A correct judge will normally return more rejections than keeps. The test fires hardest exactly when the thing works.
+
+## How I measured it
+
+I replaced the ratio with the number that matters: how many genuinely relevant questions are wrongly thrown away. That is the only error I cannot see, because a discarded question never appears on screen.
+
+Then I made the set harder by adding questions next to a relevant one that ask something subtly different. I ran it 3 times:
 
 ```
 FALSE DROPS (relevant judged NOT)  1 of 8
@@ -46,44 +39,37 @@ FALSE KEEPS  3 of 12
 UNSTABLE across 3 runs at temp 0   0 of 20
 ```
 
-It threw away "who has to approve a schema change" on every run, not as noise.
-That's one of six fixed slots the whole design is built around, and it is
-near-word-for-word the example my own design document uses to illustrate a
-*high-value* question. The original test would have passed this run. The
-corrected one failed it on the first attempt.
+| Measurement | Value |
+|---|---|
+| Relevant questions wrongly dropped | 1 of 8, on every run, not as noise |
+| Irrelevant questions wrongly kept | 3 of 12 |
+| Obviously irrelevant questions wrongly kept | 0 of 4 |
+| Plausible-but-wrong questions wrongly kept | 0 of 4 |
+| Near-miss questions wrongly kept | 3 of 4 |
+| Answers that changed between the 3 runs | 0 of 20 |
 
-The rest of that table matters too: perfect on obviously irrelevant questions,
-perfect on plausible-but-wrong ones, three of four wrong on the near-misses.
-It's a padding filter, not a judge — and the boundary is the only place a judge
-would earn its keep.
+The dropped question, "who has to approve a schema change", is 1 of the 6 fixed slots the whole design is built around. It is nearly word for word the example my own design document uses for a high-value question. The original test would have passed this run. The corrected one failed it on the first attempt.
 
-**The fix I proposed, and what happened to it.** I thought the model might do
-better if it had to state what each question eliminates before voting. Testing
-that took ten minutes and killed it twice. Letting the model apply the rule made
-it worse — wrong keeps went from three in twelve to ten in twelve — and on every
-near-miss it wrote `"eliminates": "nothing"` and then voted the question
-relevant anyway. So I tried having my code make the call from that field instead
-of trusting the vote. Told it was only reporting and not deciding, the model
-wrote "nothing" for all sixteen questions, including the four that genuinely
-mattered.
+The judge was perfect on obviously irrelevant questions and on plausible-but-wrong ones, and wrong on 3 of 4 near-misses. So it filters out padding, but the boundary is the only place a judge would earn its keep.
 
-**What I changed.** The judge no longer decides the coverage figure — it
-annotates, and I can overrule it. The six fixed slots are never sent to it at
-all, so the failure that fired cannot recur. Four claims in the design document
-that measurement had made false were corrected in place rather than left
-standing, and the failed fix was written up with its numbers as a
-do-not-retry — a good idea that doesn't work gets re-proposed in a month
-otherwise.
+## The fix I proposed, and what happened to it
 
-**The lesson.** A test is code, and it can be wrong in the same way the thing it
-tests can be. Mine wasn't sloppy; it encoded a specific and reasonable
-prediction about which direction the failure would come from, and the prediction
-was wrong. Every earlier case study here is about checking a claim before acting
-on it. This one is a level up: check that the instrument measuring the claim
-measures what you think it does. It was catchable for the same reason as all the
-others — running it cost three minutes, and I ran it before building on top of
-it.
+I thought the model might do better if it had to state what each question eliminates before voting. Testing that took 10 minutes and ruled it out twice.
+
+- Letting the model apply the rule made it worse. Wrong keeps went from 3 in 12 to 10 in 12. On every near-miss it wrote `"eliminates": "nothing"` and then voted the question relevant anyway.
+- So I tried having my code make the call from that field instead of trusting the vote. Told it was only reporting and not deciding, the model wrote "nothing" for all 16 questions, including the 4 that genuinely mattered.
+
+## What I changed
+
+- The judge no longer decides the coverage figure. It annotates, and I can overrule it.
+- The 6 fixed slots are never sent to it, so the failure that fired cannot recur.
+- 4 claims in the design document that the measurements showed to be false were corrected in place.
+- The failed fix was written up with its numbers as a do-not-retry, because a good-sounding idea that does not work gets proposed again a month later otherwise.
+
+## What I took from it
+
+A test is code, and it can be wrong in the same way the thing it tests can be. Mine encoded a reasonable prediction about which direction the failure would come from, and the prediction was wrong. The earlier case studies are about checking a claim before acting on it. This one is a level up: check that the instrument measuring the claim measures what you think it does. Running it cost 3 minutes, and I ran it before building on top of it.
 
 ---
 
-*Project: Umbra. Copied 19 Nov 2026 from [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#10-the-test-that-would-have-failed-a-working-component) at commit 5940844. The showcase copy is kept as well; if they differ, the showcase is newer.*
+*Project: Umbra. Rewritten for easier reading from the original in [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#10-the-test-that-would-have-failed-a-working-component) (commit 5940844). Same facts and numbers.*

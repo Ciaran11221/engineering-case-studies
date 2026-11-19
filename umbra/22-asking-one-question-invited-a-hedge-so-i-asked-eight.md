@@ -1,86 +1,76 @@
 # 22. Asking one question invited a hedge, so I asked eight
 
-**The problem.** The first tool in my coding pipeline is a planner: you
-describe a problem in your own words and it works out what is actually known
-versus what still has to be decided. To do that it has to answer one question
-first — is this request underspecified, and if so, how?
+**In one line:** asking a model one open question about whether a request was unclear got vague answers, so I split it into 8 yes-or-no questions.
 
-I asked a model exactly that. The answers were useless in a specific,
-recognisable way: agreeable, hedged, and different every time. "There may be
-some ambiguity around scope, though the intent seems reasonably clear."
-That sentence is true of every request ever written. It commits to nothing,
-and nothing downstream can act on it.
+| | |
+|---|---|
+| **Where** | Coding pipeline, the planner tool |
+| **Result** | One open question became 8 yes-or-no questions, about a third of a second per call, under 3 seconds for a full pass |
+| **Topic** | Design decision |
 
-**What I assumed.** Prompt quality. I rewrote the instruction several times —
-sharper wording, an explicit output schema, a worked example. It improved the
-prose and not the decision. The model still would not say a plain no, and
-still would not say a plain yes twice running on the same input.
+## The problem
 
-**Why that was wrong.** The problem was not how I was asking. It was that I
-had asked one open question with an unbounded answer space, to a system whose
-training rewards sounding helpful. An open question is an invitation to
-produce something that reads like insight, and "there may be some ambiguity"
-reads like insight. I had built the hedge into the shape of the question and
-was trying to fix it in the wording.
+The first tool in my coding pipeline is a planner. You describe a problem in your own words, and it works out what is known and what still has to be decided. To do that it first has to decide one thing: whether the request is underspecified, and if so in what way.
 
-**What I changed.** I stopped asking whether the problem is ambiguous, and
-started asking whether it exhibits one specific kind of ambiguity — eight
-times, once per kind, each answerable only yes or no with a reason.
+I asked a model exactly that. The answers were agreeable, hedged and different every time. For example: "There may be some ambiguity around scope, though the intent seems reasonably clear." That sentence is true of every request ever written. It commits to nothing, so nothing later in the pipeline can act on it.
 
-    overloaded_term       one word means genuinely different things by
-                          domain, and nothing says which
-    referential           nothing anywhere names the thing being discussed
-    scope                 the what is named, the which-one is not
-    vague_quantifier      "fast", "a few users", with no number anywhere
-    missing_environment   the fix would differ by OS, runtime or version,
-                          and none is stated
-    symptom_vs_cause      an observed effect with several possible causes
-    unmeasurable_success  "more reliable", with no metric or baseline
-    unrecognised_term     a term I cannot confidently resolve at all
+## What I assumed
 
-A binary question has no room for a hedge. There is no diplomatic middle
-between yes and no, so the pressure that produced "there may be some" has
-nowhere to go.
+That the prompt quality was the problem. I rewrote the instruction several times, with sharper wording, an explicit output format and a worked example. The prose improved and the decision did not. The model still would not say a plain no, and would not say a plain yes twice running on the same input.
 
-**The part that took longer than the decomposition.** Two of the eight
-classes turned out to need definitions written specifically against how a
-model gets them wrong, and those are the most useful lines in the file.
+## What the evidence said
 
-*referential* kept firing on any sentence containing "it". So the definition
-now says: test for the antecedent, not for the pronoun — if any specific named
-thing appears anywhere in the statement, this class does not apply, even if the
-statement also says "it". Using a pronoun with something to refer back to is
-ordinary English, not ambiguity.
+- Better wording did not fix it.
+- I had asked one open question with an unbounded answer space, to a model trained to sound helpful. "There may be some ambiguity" reads like insight, so an open question invites it.
+- I had built the hedge into the shape of the question and was trying to fix it in the wording.
 
-*unrecognised_term* is the one I am most pleased with, because it asks the
-model to admit it does not know something — the exact thing the agreeableness
-pressure exists to prevent. Its definition ends: *answering honestly that you
-do not recognise something is the correct answer here, not a failure.* Saying
-so explicitly changed the behaviour where sharpening the question had not.
+## The fix
 
-**Why this was affordable.** Eight questions instead of one is eight times the
-calls, which on a metered API would have been an argument against doing it at
-all. The judge runs on a local model on my own machine, so the marginal cost
-of a question is zero and the only budget is time — measured at about a third
-of a second per call, so a full eight-class pass finishes in under three
-seconds. The decomposition is not a clever idea that happened to be
-affordable; it is an idea the cost model made available. On a per-call bill I
-would have kept trying to fix the wording.
+I stopped asking whether the problem is ambiguous. I started asking whether it has one specific kind of ambiguity, 8 times, once per kind. Each question can only be answered yes or no, with a reason.
 
-**What it deliberately does not do.** A finding is metadata attached to the
-round. It never halts anything by itself. A flag is something a human can
-proceed past, and when a finding should escalate into something that does stop
-a round is a separate design question I have not answered — so there is no
-halt path in the module at all, rather than a halt path I would have had to
-guess the rules for.
+```
+overloaded_term       one word means genuinely different things by
+                      domain, and nothing says which
+referential           nothing anywhere names the thing being discussed
+scope                 the what is named, the which-one is not
+vague_quantifier      "fast", "a few users", with no number anywhere
+missing_environment   the fix would differ by OS, runtime or version,
+                      and none is stated
+symptom_vs_cause      an observed effect with several possible causes
+unmeasurable_success  "more reliable", with no metric or baseline
+unrecognised_term     a term I cannot confidently resolve at all
+```
 
-**What I would still challenge.** Which classes run at which difficulty level
-is a judgement call, not a measurement. Easy checks none and hard checks all
-eight — both structural — but the middle tier is five classes I picked as "the
-ones a careful reader would catch on a single read-through", and I have not
-tested that grouping against anything. It is the weakest claim in the design
-and it is labelled as such in the source.
+A yes-or-no question has no diplomatic middle, so the pressure that produced "there may be some" has nowhere to go.
+
+Two of the 8 classes needed definitions written against how a model gets them wrong:
+
+- **referential** kept firing on any sentence containing "it". The definition now says to test for the thing the pronoun points back to, not for the pronoun itself. If any specific named thing appears anywhere in the statement, the class does not apply, even if the statement also says "it". Using a pronoun with something to refer back to is ordinary English.
+- **unrecognised_term** asks the model to admit it does not know something. Its definition ends: *answering honestly that you do not recognise something is the correct answer here, not a failure.* Saying so changed the behaviour where sharpening the question had not.
+
+## How I measured it
+
+8 questions instead of 1 is 8 times the calls. The judge runs on a local model on my own machine, so the cost of one more question is zero and the only budget is time.
+
+| Measurement | Value |
+|---|---|
+| Time per call | about a third of a second |
+| Full 8-question pass | under 3 seconds |
+
+On a per-call bill I would have kept trying to fix the wording. The cost model made this idea available.
+
+## What it deliberately does not do
+
+A finding is metadata attached to the round. It never halts anything by itself. A flag is something a human can proceed past. When a finding should escalate into something that stops a round is a separate design question I have not answered, so there is no halt path in the module at all.
+
+## What I would still challenge
+
+Which classes run at which difficulty level is a judgement call, not a measurement. Easy checks none and hard checks all 8, and both of those are structural. The middle tier is 5 classes I picked as the ones a careful reader would catch on a single read-through, and I have not tested that grouping against anything. It is the weakest claim in the design and is labelled as such in the source.
+
+## What I took from it
+
+I had to change the shape of the question, because rewording it could not remove the room to hedge.
 
 ---
 
-*Project: Umbra. Copied 19 Nov 2026 from [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#22-asking-one-question-invited-a-hedge-so-i-asked-eight) at commit 5940844. The showcase copy is kept as well; if they differ, the showcase is newer.*
+*Project: Umbra. Rewritten for easier reading from the original in [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#22-asking-one-question-invited-a-hedge-so-i-asked-eight) (commit 5940844). Same facts and numbers.*

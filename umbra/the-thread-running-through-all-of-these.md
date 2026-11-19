@@ -5,7 +5,7 @@ and acting on it, when the cost of checking first was low.
 
 What changed was building the instrumentation *before* the fix. Every problem
 above became tractable within one attempt once the log could actually answer the
-question — and several had resisted multiple attempts before that.
+question, and several had resisted multiple attempts before that.
 
 The visible output is a working assistant. The useful output was learning to
 tell the difference between a conclusion and a hypothesis that feels like one.

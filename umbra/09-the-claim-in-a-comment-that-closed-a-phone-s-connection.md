@@ -1,27 +1,28 @@
 # 9. The claim in a comment that closed a phone's connection
 
-**Symptom.** I'd just redesigned how the architecture jar (see [case study
-8](08-three-failures-that-were-obvious-to-a-person-and-invisible-to-the-system.md))
-stores its in-progress work, restarted the desktop app to pick up the
-change, then opened the corresponding screen on my phone. It came back with
-"couldn't reach core, EOF" and the connection closed immediately.
+**In one line:** I wrote a comment claiming how other code behaved without checking, the claim was false, and the phone's connection to the desktop closed.
 
-**What I assumed, and wrote down as fact.** While writing the redesign, I
-added an internal field to the data one function returns, and documented it
-with a claim about the code that consumes it: that a specific handler "only
-forwards a few named fields," so the extra field would never actually leave
-the process. I never opened that handler to check. It read as obviously
-true from the calling code alone.
+| | |
+|---|---|
+| **Where** | Architecture jar's storage of in-progress work (see [case study 8](08-three-failures-that-were-obvious-to-a-person-and-invisible-to-the-system.md)), and the phone connection |
+| **Result** | Phone showed "couldn't reach core, EOF" and the connection closed; fixed, with a test that runs the real output through the network layer's serializer |
+| **Topic** | Debugging, Testing |
 
-**Why that was wrong.** The handler forwards the whole structure wholesale,
-with no filtering at all. The extra field I'd added held a filesystem path
-object, not a plain string — and the moment a real request tried to
-serialize that structure to JSON to send over the wire, it failed outright.
-The error handling around that failure closed the socket immediately,
-which is exactly the "EOF" the phone saw.
+## The problem
 
-**What the log actually said**, once I checked it instead of the comment
-I'd written:
+I had just redesigned how the architecture jar (one self-contained feature module of the assistant) stores its in-progress work. I restarted the desktop app to pick up the change, then opened the matching screen on my phone. It came back with "couldn't reach core, EOF" and the connection closed immediately.
+
+## What I assumed
+
+While writing the redesign, I added an internal field to the data 1 function returns. I documented it with a claim about the code that consumes it: that a specific handler "only forwards a few named fields", so the extra field would never leave the process. I never opened that handler to check. It read as obviously true from the calling code alone.
+
+## What the evidence said
+
+The handler forwards the whole structure with no filtering at all. The extra field held a filesystem path object, not a plain string. When a real request tried to convert that structure to JSON (the text format sent over the network), it failed. The error handling around that failure closed the connection immediately, which is the "EOF" the phone saw.
+
+## How I measured it
+
+Once I checked the log instead of the comment I had written, it said:
 
 ```
 TypeError: Object of type WindowsPath is not JSON serializable
@@ -29,24 +30,20 @@ when serializing dict item '_folder'
 when serializing dict item 'diagrams'
 ```
 
-Two lines that state the entire bug outright, sitting untouched in the log
-the whole time it mattered.
+Those 2 lines state the whole bug, and they sat in the log the whole time it mattered.
 
-**What I built.** Moved the actual filesystem lookup into a function that
-nothing outside the module ever sees the return value of — the data handed
-back to any caller now only ever carries plain, wire-safe fields. Added a
-test that does the one thing that would have caught this before it
-shipped: takes the real function's real output and runs it through the
-same serializer the network layer uses, asserting it doesn't raise.
+## The cause
 
-**The lesson.** A comment that states how another piece of code behaves is
-a claim about that code, not a fact available from the file you're
-actually editing. It needed exactly one grep before being written down,
-and it shipped anyway because that grep felt unnecessary — the calling
-code's own shape seemed to make the claim obviously true. It didn't cost a
-debugging session to catch. It cost a live connection, closing, the moment
-it mattered.
+My comment was a claim about another piece of code, and I wrote it without looking at that code.
+
+## The fix
+
+I moved the filesystem lookup into a function whose return value nothing outside the module sees. The data handed back to any caller now carries only plain fields that are safe to send. I also added a test that would have caught this before it shipped: it takes the real function's real output, runs it through the same serializer the network layer uses, and asserts that it does not raise an error.
+
+## What I took from it
+
+A comment that states how other code behaves is a claim about that code, not a fact available from the file I am editing. It needed exactly 1 grep before I wrote it down, and it shipped anyway because the grep felt unnecessary. It cost a live connection closing at the moment it mattered.
 
 ---
 
-*Project: Umbra. Copied 19 Nov 2026 from [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#9-the-claim-in-a-comment-that-closed-a-phones-connection) at commit 5940844. The showcase copy is kept as well; if they differ, the showcase is newer.*
+*Project: Umbra. Rewritten for easier reading from the original in [umbra-sub-os-showcase / CASE-STUDIES.md](https://github.com/Ciaran11221/umbra-sub-os-showcase/blob/main/CASE-STUDIES.md#9-the-claim-in-a-comment-that-closed-a-phones-connection) (commit 5940844). Same facts and numbers.*
