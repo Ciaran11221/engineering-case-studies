@@ -1,6 +1,6 @@
 # Engineering case studies
 
-Problems from my own builds that took real work. Each one follows the same shape: what it looked like, what I assumed, what the evidence actually said, and what I changed.
+Problems from my own builds that took real work, one file each, grouped by project.
 
 ## Umbra
 
