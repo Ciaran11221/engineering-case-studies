@@ -42,3 +42,13 @@ Umbra's full project showcase: https://github.com/Ciaran11221/umbra-sub-os-showc
 | 28 | [A week of missing heart rate, and the page I never turned](umbra/28-a-week-of-missing-heart-rate-and-the-page-i-never-turned.md) | Heart-rate data stopped reaching my assistant for a week because my phone app read only the first page of results from the health store. | 56 readings | Debugging |
 
 The pattern across all of them: [The thread running through all of these](umbra/the-thread-running-through-all-of-these.md)
+
+## Claude-Setup
+
+3 problems from measuring how I work with AI coding agents (Claude Code): the config they read kept in git, a cost report built from their session logs, and rules that send each step to the cheapest model that can do it. Every test had its pass mark set before it ran. The repo itself is private; the numbers come from its work log and research notes.
+
+| # | Case study | In one line | Headline number | Topic |
+|---|---|---|---|---|
+| 1 | [The cost report that counted copied calls twice](claude-setup/01-the-cost-report-that-counted-copied-calls-twice.md) | The tool I built to measure what my AI agents cost was 21% too high over 30 days, because some chats carry copies of other chats' calls. | 21.0% | Measurement, Testing |
+| 2 | [The cheaper model that passed the made-up cases and failed the real ones](claude-setup/02-the-cheaper-model-that-passed-the-made-up-cases-and-failed-the-real-ones.md) | A cheaper model scored 36 of 36 on invented routing cases, then routed 2 of 15 real tasks too cheaply and failed its pre-set pass mark. | 2 of 15 | Testing, Measurement, Design decision |
+| 3 | [The highest effort setting, and the test that could not show it winning](claude-setup/03-the-highest-effort-setting-and-the-test-that-could-not-show-it-winning.md) | Maximum thinking gave the same result as one level lower on 3 of 3 tasks at 2.2 times the cost, and the test could not have shown max winning. | 2.2 times | Measurement, Testing, Design decision |
